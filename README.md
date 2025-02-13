@@ -55,6 +55,9 @@ make setup
 ```bash
 cd proj-svg_mppi
 make build
+# or you can do clone in your workspace and catkin_make
+cd $your_workspace
+catkin_make
 ```
 
 # Since it is holonomic now, you can follow simulation(2)
