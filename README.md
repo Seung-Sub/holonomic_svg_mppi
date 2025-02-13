@@ -89,5 +89,7 @@ roslaunch local_costmap_generator local_costmap_generator.launch
 ```
 
 **you can choose mppi-mode at mppi_controller.yaml**
+
 **Currently only forward_mppi and svg_mppi are available.**
+
 **is_reference_less_mode: true = reference mode, false = Target point mode // less is a typo**
