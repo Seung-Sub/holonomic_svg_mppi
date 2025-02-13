@@ -1,0 +1,11 @@
+<launch>
+    <arg name="mppi_param_path" default="$(find mppi_controller)/config/mppi_controller.yaml"/>
+    <arg name="is_simulation" default="false"/>
+    <arg name="is_reference_path_less_mode" default="true"/>
+
+    <node pkg="mppi_controller" type="mppi_controller_node" name="mppi_controller" output="screen">
+        <rosparam command="load" file="$(arg mppi_param_path)"/>
+        <param name="is_simulation" value="$(arg is_simulation)"/>
+        <param name="is_reference_path_less_mode" value="$(arg is_reference_path_less_mode)"/>
+    </node>
+</launch>
