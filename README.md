@@ -1,7 +1,7 @@
 
 # Stein Variational Guided Model Predictive Path Integral Control (SVG-MPPI)
 
-Based on [Stein Variational Guided Model Predictive Path Integral Control: Proposal and Experiments with Fast Maneuvering Vehicles](https://arxiv.org/abs/2309.11040), modified to a holonomic-based code
+Based on [Stein Variational Guided Model Predictive Path Integral Control: Proposal and Experiments with Fast Maneuvering Vehicles](https://arxiv.org/abs/2309.11040), (https://github.com/kohonda/proj-svg_mppi) I modified to a holonomic-based code
 
 ## Tested Environment
 
