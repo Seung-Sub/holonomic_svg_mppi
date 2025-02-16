@@ -29,7 +29,7 @@ collision_rate_threshold: 1.0 # [0, 1] If the collision rate is larger than this
 # This is currently only used in localize_less_mode.
 # speed_deque_size: 10
 # stuck_speed_threshold: 0.3 # [m/s]
-mpc_mode: "forward_mppi" # "forward_mppi" or "reverse_mppi" or "sv_mpc" or "svg_mppi"
+mpc_mode: "svg_mppi" # "forward_mppi" or "reverse_mppi" or "sv_mpc" or "svg_mppi"
 
 is_reference_path_less_mode: true # false: 참조 경로 없이 단일 목표 설정, true: 참조 경로 사용
 
@@ -61,9 +61,9 @@ common:
 
 forward_mppi:
   sample_batch_num: 10000
-  lambda: 3.0 # temperature parameter [0, inf) of free energy, which is a balancing term between control cost and state cost.
-  alpha: 0.1 # weighting parameter [0, 1], which balances control penalties from previous control sequence and nominal control sequence.
-  non_biased_sampling_rate: 0.1 # [0, 1]. add random noise to candidate control sequence with this rate.
+  lambda: 1.0 # temperature parameter [0, inf) of free energy, which is a balancing term between control cost and state cost. #0.5~3.0
+  alpha: 0.05 # weighting parameter [0, 1], which balances control penalties from previous control sequence and nominal control sequence. #0.05~0.1
+  non_biased_sampling_rate: 0.1 # [0, 1]. add random noise to candidate control sequence with this rate. #0.05~0.1
   Vx_cov: 0.8
   Vy_cov: 0.8
   Wz_cov: 0.8
@@ -110,7 +110,7 @@ stein_variational_mpc:
 
 svg_mppi:
   sample_batch_num: 8000
-  lambda: 3.0 # temperature parameter [0, inf) of free energy, which is a balancing term between control cost and state cost.
+  lambda: 1.0 # temperature parameter [0, inf) of free energy, which is a balancing term between control cost and state cost.
   non_biased_sampling_rate: 0.1 # [0, 1]. add random noise to candidate control sequence with this rate.
   alpha: 0.1 # weighting parameter [0, 1], which balances control penalties from previous control sequence and nominal control sequence.
 
@@ -118,19 +118,19 @@ svg_mppi:
   Vy_cov: 0.8
   Wz_cov: 0.8
 
-  guide_sample_num: 1
-  grad_lambda: 3.0  #3.0
+  guide_sample_num: 2
+  grad_lambda: 1.0  #3.0
   sample_num_for_grad_estimation: 100
 
-  Vx_cov_for_grad_estimation: 0.08
-  Vy_cov_for_grad_estimation: 0.08
-  Wz_cov_for_grad_estimation: 0.08
+  Vx_cov_for_grad_estimation: 0.04 #0.01~0.1
+  Vy_cov_for_grad_estimation: 0.04 #0.01~0.1
+  Wz_cov_for_grad_estimation: 0.04 #0.01~0.1
 
-  svgd_step_size: 0.02    #0.005
-  num_svgd_iteration: 30  #10
+  svgd_step_size: 0.01    #0.01~0.05
+  num_svgd_iteration: 15  #10
   is_use_nominal_solution: true
   is_covariance_adaptation: true
-  gaussian_fitting_lambda: 0.4
+  gaussian_fitting_lambda: 0.1
 
   min_Vx_cov: 0.01
   max_Vx_cov: 1.0

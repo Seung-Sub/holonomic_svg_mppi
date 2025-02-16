@@ -163,9 +163,9 @@ namespace cpu {
         // std::vector<geometry_msgs::PoseStamped> path_poses = path.poses;
 
         // Assuming that the path is in global frame, we use the first pose as reference
-        const double init_x = global_init_state(STATE_SPACE::x);
-        const double init_y = global_init_state(STATE_SPACE::y);
-        const double init_yaw = global_init_state(STATE_SPACE::yaw);
+        // const double init_x = global_init_state(STATE_SPACE::x);
+        // const double init_y = global_init_state(STATE_SPACE::y);
+        // const double init_yaw = global_init_state(STATE_SPACE::yaw);
         
         // Start iterating over the prediction steps
         for (size_t i = 0; i < prediction_step_size_ - 1; i++) {
@@ -354,7 +354,7 @@ namespace cpu {
         sum_collision_cost += collision_cost * collision_weight_;
 
         // collision_cost 로그 출력
-        ROS_INFO_THROTTLE(2.0, "collision_cost: %.2f, sum_collision_cost: %.2f", collision_cost, sum_collision_cost);
+        // ROS_INFO_THROTTLE(2.0, "collision_cost: %.2f, sum_collision_cost: %.2f", collision_cost, sum_collision_cost);
     }
     
     // Terminal cost: use the final predicted state versus the goal.
@@ -380,7 +380,7 @@ namespace cpu {
     
     // collision_cost 로그 출력
     // ROS_INFO_THROTTLE(2.0, "Collision Cost at step %zu: %.2f", prediction_step_size_ - 1, collision_cost);
-    ROS_INFO_THROTTLE(2.0, "terminal_collision_cost: %.2f", terminal_collision_cost);
+    // ROS_INFO_THROTTLE(2.0, "terminal_collision_cost: %.2f", terminal_collision_cost);
 
     return std::make_pair(sum_goal_cost + sum_collision_cost, sum_collision_cost);
 }
