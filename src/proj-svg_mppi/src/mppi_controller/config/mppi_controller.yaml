@@ -55,18 +55,18 @@ common:
   collision_weight: 30000.0
   # If localize_less_mode, the following parameters (q_angle and q_dist) are ignored.
   q_dist: 0.5
-  q_angle: 0.5
-  q_terminal_dist: 0.6
-  q_terminal_angle: 0.6
+  q_angle: 0.3
+  q_terminal_dist: 0.5
+  q_terminal_angle: 0.5
 
 forward_mppi:
   sample_batch_num: 10000
   lambda: 1.0 # temperature parameter [0, inf) of free energy, which is a balancing term between control cost and state cost. #0.5~3.0
   alpha: 0.05 # weighting parameter [0, 1], which balances control penalties from previous control sequence and nominal control sequence. #0.05~0.1
   non_biased_sampling_rate: 0.1 # [0, 1]. add random noise to candidate control sequence with this rate. #0.05~0.1
-  Vx_cov: 0.8
-  Vy_cov: 0.8
-  Wz_cov: 0.8
+  Vx_cov: 0.5
+  Vy_cov: 0.5
+  Wz_cov: 0.5
 
   # Parameters for estimating gradient of Reverse KLD
   num_itr_for_grad_estimation: 0 # If 0, vanilla MPPI is used without gradient estimation.
@@ -114,27 +114,27 @@ svg_mppi:
   non_biased_sampling_rate: 0.1 # [0, 1]. add random noise to candidate control sequence with this rate.
   alpha: 0.1 # weighting parameter [0, 1], which balances control penalties from previous control sequence and nominal control sequence.
 
-  Vx_cov: 0.8 # initial covariance or constant covariance if is_covariance_adaptation is false
-  Vy_cov: 0.8
-  Wz_cov: 0.8
+  Vx_cov: 0.4 # initial covariance or constant covariance if is_covariance_adaptation is false
+  Vy_cov: 0.4
+  Wz_cov: 0.4
 
-  guide_sample_num: 2
-  grad_lambda: 1.0  #3.0
+  guide_sample_num: 5
+  grad_lambda: 60.0  #3.0
   sample_num_for_grad_estimation: 100
 
-  Vx_cov_for_grad_estimation: 0.04 #0.01~0.1
-  Vy_cov_for_grad_estimation: 0.04 #0.01~0.1
-  Wz_cov_for_grad_estimation: 0.04 #0.01~0.1
+  Vx_cov_for_grad_estimation: 0.02 #0.01~0.1
+  Vy_cov_for_grad_estimation: 0.02 #0.01~0.1
+  Wz_cov_for_grad_estimation: 0.02 #0.01~0.1
 
-  svgd_step_size: 0.01    #0.01~0.05
-  num_svgd_iteration: 15  #10
+  svgd_step_size: 0.03    #0.01~0.05
+  num_svgd_iteration: 35  #10
   is_use_nominal_solution: true
   is_covariance_adaptation: true
-  gaussian_fitting_lambda: 0.1
+  gaussian_fitting_lambda: 0.3
 
-  min_Vx_cov: 0.01
+  min_Vx_cov: 0.01 # for 1D fitting (Vx, Vy, Wz) clamp
   max_Vx_cov: 1.0
   min_Vy_cov: 0.01
   max_Vy_cov: 1.0
   min_Wz_cov: 0.01
-  max_Wz_cov: 1.0
+  max_Wz_cov: 1.0 

@@ -34,8 +34,6 @@ namespace cpu {
         const size_t sample_num_for_cache = std::max(std::max(sample_batch_num, sample_num_for_grad_estimation), guide_sample_num);
         mpc_base_ptr_ = std::make_unique<MPCBase>(common_params, sample_num_for_cache);
 
-        // const double max_steer_angle = common_params.max_steer_angle;
-        // const double min_steer_angle = common_params.min_steer_angle;
         const double max_Vx = common_params.max_Vx;
         const double min_Vx = common_params.min_Vx;
         const double max_Vy = common_params.max_Vy;
@@ -55,8 +53,8 @@ namespace cpu {
         nominal_control_seq_ = prior_samples_ptr_->get_zero_control_seq();
 
         // initialize prior distribution
-        const ControlSeqCovMatrices control_seq_cov_matrices = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
-        guide_samples_ptr_->random_sampling(guide_samples_ptr_->get_zero_control_seq(), control_seq_cov_matrices);
+        // const ControlSeqCovMatrices control_seq_cov_matrices = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
+        // guide_samples_ptr_->random_sampling(guide_samples_ptr_->get_zero_control_seq(), control_seq_cov_matrices);
 
         // initialize grad samplers
         for (size_t i = 0; i < sample_batch_num; i++) {
@@ -67,6 +65,12 @@ namespace cpu {
     }
 
     std::pair<ControlSeq, double> SVGuidedMPPI::solve(const State& initial_state) {
+        // [MODIFIED] : 매 solve() 호출 시, guide_samples_ptr_를 "prev_control_seq_"를 중심(mean)으로 다시 샘플링
+        {
+            const ControlSeqCovMatrices guide_cov = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
+            guide_samples_ptr_->random_sampling(prev_control_seq_, guide_cov);
+        }
+        
         // Transport guide particles by SVGD
         std::vector<double> costs_history;
         std::vector<ControlSeq> control_seq_history;
@@ -75,20 +79,7 @@ namespace cpu {
             // Transport samples by stein variational gradient descent
             const ControlSeqBatch grad_log_posterior = approx_grad_posterior_batch(*guide_samples_ptr_, func_calc_costs);
 
-             // === DEBUG START ===
-            {
-                // grad norm 체크
-                double sum_grad_norm = 0.0;
-                for (size_t k = 0; k < guide_samples_ptr_->get_num_samples(); k++) {
-                    double local_norm = 0.0;
-                    for (size_t t = 0; t < prediction_step_size_ - 1; t++) {
-                        local_norm += grad_log_posterior[k].row(t).squaredNorm();
-                    }
-                    sum_grad_norm += std::sqrt(local_norm);
-                }
-                std::cout << "[SVGD iter " << i << "] sum of gradient norms = " << sum_grad_norm << std::endl;
-            }
-            // === DEBUG END ===
+            
 
 #pragma omp parallel for num_threads(thread_num_)
             for (size_t i = 0; i < guide_samples_ptr_->get_num_samples(); i++) {
@@ -100,17 +91,6 @@ namespace cpu {
             // guide_samples_ptr_->costs_ = costs;
             // const std::vector<double> cost_with_control_term = guide_samples_ptr_->get_costs_with_control_term(gaussian_fitting_lambda, 0,
             // prior_samples_ptr_->get_zero_control_seq());
-            
-            // // === DEBUG START ===
-            // {
-            //     // SVGD iteration별 cost 통계
-            //     double min_c = *std::min_element(costs.begin(), costs.end());
-            //     double max_c = *std::max_element(costs.begin(), costs.end());
-            //     double avg_c = std::accumulate(costs.begin(), costs.end(), 0.0) / costs.size();
-            //     std::cout << "[SVGD iter " << i << "] cost min=" << min_c
-            //             << ", max=" << max_c << ", avg=" << avg_c << std::endl;
-            // }
-            // // === DEBUG END ===
 
             // history 업데이트 for adaptive covariance
             costs_history.insert(costs_history.end(), costs.begin(), costs.end());

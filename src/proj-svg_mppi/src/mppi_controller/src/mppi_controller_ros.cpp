@@ -408,6 +408,7 @@ void MPPIControllerROS::timer_callback([[maybe_unused]] const ros::TimerEvent& t
         // publish nominal state
         const auto nominal_control_seq = mpc_solver_ptr_->get_control_seq();
         const auto nominal_state_seq = std::get<0>(mpc_solver_ptr_->get_predictive_seq(initial_state, nominal_control_seq));
+        // ROS_INFO("nominal_control_seq: %f, %f, %f", nominal_control_seq(0, CONTROL_SPACE::Vx), nominal_control_seq(0, CONTROL_SPACE::Vy), nominal_control_seq(0, CONTROL_SPACE::Wz));
         publish_path(nominal_state_seq, "nominal_path", "g", pub_nominal_path_);
     } else {
         // publish best state
