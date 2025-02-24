@@ -36,7 +36,7 @@ is_reference_path_less_mode: true # false: 참조 경로 없이 단일 목표 �
 # goal params
 current_goal_topic: /robot/move_base/current_goal
 
-lookahead_distance: 10000.0
+lookahead_distance: 100000.0
 
 
 common:
@@ -52,21 +52,21 @@ common:
   max_Wz: 1.0
   min_Wz: -1.0
 
-  collision_weight: 30000.0
+  collision_weight: 10.0
   # If localize_less_mode, the following parameters (q_angle and q_dist) are ignored.
-  q_dist: 0.5
-  q_angle: 0.3
-  q_terminal_dist: 0.5
-  q_terminal_angle: 0.5
+  q_dist: 0.2
+  q_angle: 0.4
+  q_terminal_dist: 0.2
+  q_terminal_angle: 0.4
 
 forward_mppi:
   sample_batch_num: 10000
   lambda: 1.0 # temperature parameter [0, inf) of free energy, which is a balancing term between control cost and state cost. #0.5~3.0
-  alpha: 0.05 # weighting parameter [0, 1], which balances control penalties from previous control sequence and nominal control sequence. #0.05~0.1
+  alpha: 0.1 # weighting parameter [0, 1], which balances control penalties from previous control sequence and nominal control sequence. #0.05~0.1
   non_biased_sampling_rate: 0.1 # [0, 1]. add random noise to candidate control sequence with this rate. #0.05~0.1
-  Vx_cov: 0.5
-  Vy_cov: 0.5
-  Wz_cov: 0.5
+  Vx_cov: 0.4
+  Vy_cov: 0.4
+  Wz_cov: 0.4
 
   # Parameters for estimating gradient of Reverse KLD
   num_itr_for_grad_estimation: 0 # If 0, vanilla MPPI is used without gradient estimation.
@@ -118,23 +118,23 @@ svg_mppi:
   Vy_cov: 0.4
   Wz_cov: 0.4
 
-  guide_sample_num: 5
-  grad_lambda: 60.0  #3.0
+  guide_sample_num: 5 #5~10
+  grad_lambda: 10.0  #4.0 ~ 50.0 target 거리에 따른 cost에 대해서 가까우면(cost 낮으면) 줄이고, 멀면 늘리기.
   sample_num_for_grad_estimation: 100
 
-  Vx_cov_for_grad_estimation: 0.02 #0.01~0.1
-  Vy_cov_for_grad_estimation: 0.02 #0.01~0.1
-  Wz_cov_for_grad_estimation: 0.02 #0.01~0.1
+  Vx_cov_for_grad_estimation: 0.02 #0.01~0.05 
+  Vy_cov_for_grad_estimation: 0.02 #0.01~0.05
+  Wz_cov_for_grad_estimation: 0.02 #0.01~0.05
 
-  svgd_step_size: 0.03    #0.01~0.05
-  num_svgd_iteration: 35  #10
+  svgd_step_size: 0.03    #0.02~0.04
+  num_svgd_iteration: 30  #30~50
   is_use_nominal_solution: true
   is_covariance_adaptation: true
-  gaussian_fitting_lambda: 0.3
+  gaussian_fitting_lambda: 0.1 #0.1~1.0, cost에 차이에 극단적으로 가중치 부여, 가장 낮은 cost 샘플만 크게 반영해서 값을 낮추면 cov 변동이 크다. 작으면 급 수렴(진동), 크면 완만 수렴 (안정)
 
-  min_Vx_cov: 0.01 # for 1D fitting (Vx, Vy, Wz) clamp
-  max_Vx_cov: 1.0
-  min_Vy_cov: 0.01
-  max_Vy_cov: 1.0
-  min_Wz_cov: 0.01
-  max_Wz_cov: 1.0 
+  min_Vx_cov: 0.03 # for 1D fitting (Vx, Vy, Wz) clamp, 0.02~0.05
+  max_Vx_cov: 0.7  #0.5~0.8
+  min_Vy_cov: 0.03
+  max_Vy_cov: 0.7
+  min_Wz_cov: 0.03
+  max_Wz_cov: 0.7 

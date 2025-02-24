@@ -207,49 +207,92 @@ namespace cpu {
     }
 
 
-    geometry_msgs::PoseStamped MPCBase::selectTargetReference(const nav_msgs::Path& reference_path, const State& current_state, double lookahead_distance_) const {
-    // Step 1: Find the index of the closest point on the reference path.
-    int closest_index = 0;
-    double min_dist_sq = std::numeric_limits<double>::max();
-    for (size_t i = 0; i < reference_path.poses.size(); i++) {
-        double dx = current_state(STATE_SPACE::x) - reference_path.poses[i].pose.position.x;
-        double dy = current_state(STATE_SPACE::y) - reference_path.poses[i].pose.position.y;
-        double dist_sq = dx * dx + dy * dy;
-        if (dist_sq < min_dist_sq) {
-            min_dist_sq = dist_sq;
-            closest_index = i;
+//     geometry_msgs::PoseStamped MPCBase::selectTargetReference(const nav_msgs::Path& reference_path, const State& current_state, double lookahead_distance_) const {
+//     // Step 1: Find the index of the closest point on the reference path.
+//     int closest_index = 0;
+//     double min_dist_sq = std::numeric_limits<double>::max();
+//     for (size_t i = 0; i < reference_path.poses.size(); i++) {
+//         double dx = current_state(STATE_SPACE::x) - reference_path.poses[i].pose.position.x;
+//         double dy = current_state(STATE_SPACE::y) - reference_path.poses[i].pose.position.y;
+//         double dist_sq = dx * dx + dy * dy;
+//         if (dist_sq < min_dist_sq) {
+//             min_dist_sq = dist_sq;
+//             closest_index = i;
+//         }
+//     }
+//     // Step 2: From the closest point, move ahead along the path until the cumulative distance exceeds lookahead_distance.
+//     double accumulated_distance = 0.0;
+//     int target_index = closest_index;
+
+//     // If the distance to the next waypoint is less than the lookahead_distance, keep iterating
+//     for (size_t i = closest_index; i < reference_path.poses.size() - 1; i++) {
+//         double dx = reference_path.poses[i+1].pose.position.x - reference_path.poses[i].pose.position.x;
+//         double dy = reference_path.poses[i+1].pose.position.y - reference_path.poses[i].pose.position.y;
+//         accumulated_distance += std::sqrt(dx * dx + dy * dy);
+
+//         // If the accumulated distance reaches or exceeds the lookahead distance, stop here
+//         if (accumulated_distance >= lookahead_distance_) {
+//             target_index = i + 1;
+//             break;
+//             }
+//         }
+
+//         // Step 3: Ensure that the target is at least some lookahead_distance away
+//         if (accumulated_distance < lookahead_distance_) {
+//             target_index = reference_path.poses.size() - 1;  // Use last pose as target
+//         }
+
+//         // Ensure reference path is not empty and return the target pose
+//         if (reference_path.poses.empty()) {
+//             ROS_WARN("Reference path is empty.");
+//         geometry_msgs::PoseStamped empty_pose;
+//         return empty_pose;
+//     }
+//     return reference_path.poses[target_index];
+// }
+
+    geometry_msgs::PoseStamped MPCBase::selectTargetReference(
+        const nav_msgs::Path& reference_path,
+        const State& current_state,
+        double lookahead_distance_
+    ) const
+    {
+        geometry_msgs::PoseStamped empty_pose;
+        if (reference_path.poses.empty()) {
+            ROS_WARN("Reference path is empty.");
+            return empty_pose; // return an empty pose if no path
         }
-    }
-    // Step 2: From the closest point, move ahead along the path until the cumulative distance exceeds lookahead_distance.
-    double accumulated_distance = 0.0;
-    int target_index = closest_index;
 
-    // If the distance to the next waypoint is less than the lookahead_distance, keep iterating
-    for (size_t i = closest_index; i < reference_path.poses.size() - 1; i++) {
-        double dx = reference_path.poses[i+1].pose.position.x - reference_path.poses[i].pose.position.x;
-        double dy = reference_path.poses[i+1].pose.position.y - reference_path.poses[i].pose.position.y;
-        accumulated_distance += std::sqrt(dx * dx + dy * dy);
-
-        // If the accumulated distance reaches or exceeds the lookahead distance, stop here
-        if (accumulated_distance >= lookahead_distance_) {
-            target_index = i + 1;
-            break;
+        // (1) find the index of the closest point (optional but recommended, so we skip behind part)
+        double min_dist_sq = std::numeric_limits<double>::max();
+        int closest_index = 0;
+        for (size_t i = 0; i < reference_path.poses.size(); i++) {
+            double dx = current_state(STATE_SPACE::x) - reference_path.poses[i].pose.position.x;
+            double dy = current_state(STATE_SPACE::y) - reference_path.poses[i].pose.position.y;
+            double dist_sq = dx*dx + dy*dy;
+            if (dist_sq < min_dist_sq) {
+                min_dist_sq = dist_sq;
+                closest_index = i;
             }
         }
 
-        // Step 3: Ensure that the target is at least some lookahead_distance away
-        if (accumulated_distance < lookahead_distance_) {
-            target_index = reference_path.poses.size() - 1;  // Use last pose as target
+        // (2) from 'closest_index' forward, find the first point whose distance
+        // to current_state is >= lookahead_distance
+        int target_index = reference_path.poses.size() - 1; // default to last pose
+        for (size_t i = closest_index; i < reference_path.poses.size(); i++) {
+            double dx = reference_path.poses[i].pose.position.x - current_state(STATE_SPACE::x);
+            double dy = reference_path.poses[i].pose.position.y - current_state(STATE_SPACE::y);
+            double dist = std::sqrt(dx*dx + dy*dy);
+
+            if (dist >= lookahead_distance_) {
+                target_index = i;
+                break;
+            }
         }
 
-        // Ensure reference path is not empty and return the target pose
-        if (reference_path.poses.empty()) {
-            ROS_WARN("Reference path is empty.");
-        geometry_msgs::PoseStamped empty_pose;
-        return empty_pose;
+        return reference_path.poses[target_index];
     }
-    return reference_path.poses[target_index];
-}
+
 
 
     // calculate state cost using obstacle map and reference map from both global state sequence and local state sequence
@@ -378,9 +421,7 @@ namespace cpu {
     }
     sum_collision_cost += terminal_collision_cost * collision_weight_;
     
-    // collision_cost 로그 출력
-    // ROS_INFO_THROTTLE(2.0, "Collision Cost at step %zu: %.2f", prediction_step_size_ - 1, collision_cost);
-    // ROS_INFO_THROTTLE(2.0, "terminal_collision_cost: %.2f", terminal_collision_cost);
+    ROS_INFO_THROTTLE(2.0, "sum_goal_cost: %.2f, sum_collision_cost: %.2f", sum_goal_cost, sum_collision_cost);
 
     return std::make_pair(sum_goal_cost + sum_collision_cost, sum_collision_cost);
 }

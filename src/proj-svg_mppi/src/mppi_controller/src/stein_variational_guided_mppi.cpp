@@ -1,4 +1,5 @@
 #include "mppi_controller/stein_variational_guided_mppi.hpp"
+#include <ros/ros.h>
 
 namespace mppi {
 namespace cpu {
@@ -53,8 +54,8 @@ namespace cpu {
         nominal_control_seq_ = prior_samples_ptr_->get_zero_control_seq();
 
         // initialize prior distribution
-        // const ControlSeqCovMatrices control_seq_cov_matrices = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
-        // guide_samples_ptr_->random_sampling(guide_samples_ptr_->get_zero_control_seq(), control_seq_cov_matrices);
+        const ControlSeqCovMatrices control_seq_cov_matrices = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
+        guide_samples_ptr_->random_sampling(guide_samples_ptr_->get_zero_control_seq(), control_seq_cov_matrices);
 
         // initialize grad samplers
         for (size_t i = 0; i < sample_batch_num; i++) {
@@ -66,10 +67,10 @@ namespace cpu {
 
     std::pair<ControlSeq, double> SVGuidedMPPI::solve(const State& initial_state) {
         // [MODIFIED] : 매 solve() 호출 시, guide_samples_ptr_를 "prev_control_seq_"를 중심(mean)으로 다시 샘플링
-        {
-            const ControlSeqCovMatrices guide_cov = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
-            guide_samples_ptr_->random_sampling(prev_control_seq_, guide_cov);
-        }
+        // {
+        //     const ControlSeqCovMatrices guide_cov = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
+        //     guide_samples_ptr_->random_sampling(prev_control_seq_, guide_cov);
+        // }
         
         // Transport guide particles by SVGD
         std::vector<double> costs_history;
@@ -109,23 +110,6 @@ namespace cpu {
             // calculate softmax costs
             const std::vector<double> softmax_costs = softmax(costs_history, gaussian_fitting_lambda_, thread_num_);
 
-            //  // === DEBUG START ===
-            // {
-            //     // costs_history 통계
-            //     double min_c = *std::min_element(costs_history.begin(), costs_history.end());
-            //     double max_c = *std::max_element(costs_history.begin(), costs_history.end());
-            //     double avg_c = std::accumulate(costs_history.begin(), costs_history.end(), 0.0) / costs_history.size();
-            //     std::cout << "[AdaptiveCov] costs_history: size=" << costs_history.size()
-            //             << ", min=" << min_c << ", max=" << max_c << ", avg=" << avg_c << std::endl;
-
-            //     // softmax_costs 통계
-            //     double min_w = *std::min_element(softmax_costs.begin(), softmax_costs.end());
-            //     double max_w = *std::max_element(softmax_costs.begin(), softmax_costs.end());
-            //     double sum_w = std::accumulate(softmax_costs.begin(), softmax_costs.end(), 0.0);
-            //     std::cout << "[AdaptiveCov] softmax cost => weight : min=" << min_w
-            //             << ", max=" << max_w << ", sum=" << sum_w << std::endl;
-            // }
-            // // === DEBUG END ===
 
             // min/max cov arrays for each dimension
             std::array<double, CONTROL_SPACE::dim> min_cov = {min_Vx_cov_, min_Vy_cov_, min_Wz_cov_};
@@ -180,25 +164,6 @@ namespace cpu {
         const std::vector<double> weights = calc_weights(*prior_samples_ptr_, nominal_control_seq_);
         weights_ = weights;  // for visualization
 
-        // // === DEBUG START ===
-        // {
-        //     // MPPI 샘플 비용 통계
-        //     double min_c = *std::min_element(_costs.begin(), _costs.end());
-        //     double max_c = *std::max_element(_costs.begin(), _costs.end());
-        //     double avg_c = std::accumulate(_costs.begin(), _costs.end(), 0.0) / _costs.size();
-        //     std::cout << "[MPPI] sample costs: min=" << min_c
-        //             << ", max=" << max_c << ", avg=" << avg_c << std::endl;
-
-        //     // 가중치 통계
-        //     double min_w = *std::min_element(weights.begin(), weights.end());
-        //     double max_w = *std::max_element(weights.begin(), weights.end());
-        //     double sum_w = std::accumulate(weights.begin(), weights.end(), 0.0);
-        //     std::cout << "[MPPI] weights: min=" << min_w
-        //             << ", max=" << max_w << ", sum=" << sum_w << std::endl;
-        // }
-        // // === DEBUG END ===
-
-
         // Get control input sequence by weighted average of samples
         ControlSeq updated_control_seq = prior_samples_ptr_->get_zero_control_seq();
         for (size_t i = 0; i < prior_samples_ptr_->get_num_samples(); i++) {
@@ -211,21 +176,6 @@ namespace cpu {
         // update previous control sequence for next time step
         prev_control_seq_ = updated_control_seq;
 
-        // // === DEBUG START ===
-        // {
-        //     // 최종 updated_control_seq 일부만 출력 (처음 몇 step)
-        //     std::cout << "[MPPI] updated_control_seq(0,0..2): "
-        //             << updated_control_seq(0,0) << ", "
-        //             << updated_control_seq(0,1) << ", "
-        //             << updated_control_seq(0,2) << std::endl;
-        //     if (prediction_step_size_ > 5) {
-        //         std::cout << "[MPPI] updated_control_seq(4,0..2): "
-        //                 << updated_control_seq(4,0) << ", "
-        //                 << updated_control_seq(4,1) << ", "
-        //                 << updated_control_seq(4,2) << std::endl;
-        //     }
-        // }
-        // // === DEBUG END ===
 
         return std::make_pair(updated_control_seq, collision_rate);
     }
@@ -311,6 +261,9 @@ namespace cpu {
         for (size_t i = 0; i < samples.get_num_samples(); i++) {
             const ControlSeq grad_log_likelihood = approx_grad_log_likelihood(
                 mean, samples.noised_control_seq_samples_[i], samples.get_inv_cov_matrices(), calc_costs, grad_sampler_ptrs_.at(i).get());
+
+            // 여기에서 grad_log_likelihood를 확인하기 위해 로그를 출력
+            ROS_INFO_STREAM("grad_log_likelihood sample " << i << ":\n" << grad_log_likelihood);
             grad_log_likelihoods[i] = grad_log_likelihood;
         }
 
