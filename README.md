@@ -93,3 +93,17 @@ roslaunch local_costmap_generator local_costmap_generator.launch
 **Currently only forward_mppi and svg_mppi are available.**
 
 **is_reference_less_mode: true = reference mode, false = Target point mode // less is a typo**
+
+
+## Debug (changing guide_samples sampling)
+After completing the simulation operation, check the plot related to each SVGD operation.
+
+If comment // For debug (1) is enabled, guide_samples are sampled from the initial distribution, If // For debug (2) is enabled, guide_samples are sampled from the distribution for previous svgd results.
+
+```bash
+cd your_ws/src/proj-svg_mppi/script
+python3 svgd_gradient_plot.py
+python3 svgd_cost_log.py
+python3 svgd_best_cov_plot.py
+```
+
