@@ -1,7 +1,7 @@
 
 # Stein Variational Guided Model Predictive Path Integral Control (SVG-MPPI)
 
-Based on [Stein Variational Guided Model Predictive Path Integral Control: Proposal and Experiments with Fast Maneuvering Vehicles](https://arxiv.org/abs/2309.11040), modified to a holonomic-based code
+Based on [Stein Variational Guided Model Predictive Path Integral Control: Proposal and Experiments with Fast Maneuvering Vehicles](https://arxiv.org/abs/2309.11040), (https://github.com/kohonda/proj-svg_mppi) I modified to a holonomic-based code
 
 ## Tested Environment
 
@@ -55,34 +55,22 @@ make setup
 ```bash
 cd proj-svg_mppi
 make build
+# or you can do clone in your workspace and catkin_make
+cd $your_workspace
+catkin_make
 ```
 
-# Since it is holonomic now, you can follow simulation(2)
 
-## Run Simulation with Visualization(1)
-**(This for Ackermann based simulation with f1tenth_gym)**
-
-Launch simulator in the Docker container
-```bash
-cd proj-svg_mppi
-./script/launch_simulator.sh
-```
-
-Launch controllers in another terminal
-```bash
-cd proj-svg_mppi
-./script/launch_controllers.sh 
-```
-
-You can change the all MPPI parameters and settings in [the yaml file](./src/mppi_controller/config/mppi_controller.yaml)
-
-
-## Run Simulation with Visualization(2)
+## Run Simulation with Visualization
 **(Simulation in progress to control holonomics with Summit_xl_sim)**
 
 For the simulation environment, please clone and set up the following link:
 
 (https://github.com/RobotnikAutomation/summit_xl_sim/tree/noetic-devel)
+
+And you should change the topic in simulation's local planner
+go to /summit_xl_common/summit_xl_navigation/launch/move_base_teb.launch
+and change cmd_vel_topic's default (whatever you like, just to avoid moving with existing local planner)
 
 Launch simulator
 ```bash
@@ -93,17 +81,28 @@ roslaunch summit_xl_sim_bringup summit_xls_complete.launch
 
 launch mppi (local-planner)
 ```bash
-cd /proj-svg_mppi
-source ~/pro-svg_mppi/devel/setup.bash
+cd /$your_ws(holonomic_svg_mppi)
+source ~/$your_ws/devel/setup.bash
 roslaunch mppi_controller mppi_controller.launch is_simulation:=true # is_simulation:=true for launch trigger
 roslaunch local_costmap_generator local_costmap_generator.launch
 
-rostopic pub /mppi/start std_msgs/Empty -1  # for start mppi
 ```
 
 **you can choose mppi-mode at mppi_controller.yaml**
+
 **Currently only forward_mppi and svg_mppi are available.**
 
+**is_reference_less_mode: true = reference mode, false = Target point mode // less is a typo**
 
 
+## Debug (changing guide_samples sampling)
+After completing the simulation operation, check the plot related to each SVGD operation.
 
+If comment // For debug (1) is enabled, guide_samples are sampled from the initial distribution, If // For debug (2) is enabled, guide_samples are sampled from the distribution for previous svgd results.
+
+```bash
+cd your_ws/src/proj-svg_mppi/script
+python3 svgd_gradient_plot.py
+python3 svgd_cost_log.py
+python3 svgd_best_cov_plot.py
+```
