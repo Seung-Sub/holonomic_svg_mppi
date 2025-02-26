@@ -126,7 +126,7 @@ svg_mppi:
   Vy_cov_for_grad_estimation: 0.02 #0.01~0.05
   Wz_cov_for_grad_estimation: 0.02 #0.01~0.05
 
-  svgd_step_size: 0.03    #0.02~0.04
+  svgd_step_size: 0.02    #0.02~0.04
   num_svgd_iteration: 30  #30~50
   is_use_nominal_solution: true
   is_covariance_adaptation: true

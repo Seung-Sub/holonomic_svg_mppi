@@ -1,5 +1,6 @@
 #include "mppi_controller/stein_variational_guided_mppi.hpp"
 #include <ros/ros.h>
+#include <fstream>
 
 namespace mppi {
 namespace cpu {
@@ -65,13 +66,53 @@ namespace cpu {
         }
     }
 
+
     std::pair<ControlSeq, double> SVGuidedMPPI::solve(const State& initial_state) {
-        // [MODIFIED] : 매 solve() 호출 시, guide_samples_ptr_를 "prev_control_seq_"를 중심(mean)으로 다시 샘플링
+        // For Debug (1)
         // {
         //     const ControlSeqCovMatrices guide_cov = guide_samples_ptr_->get_constant_control_seq_cov_matrices({Vx_cov_, Vy_cov_, Wz_cov_});
-        //     guide_samples_ptr_->random_sampling(prev_control_seq_, guide_cov);
+        //     guide_samples_ptr_->random_sampling(guide_samples_ptr_->get_zero_control_seq(), guide_cov);
         // }
         
+        // 파일 전역 or 클래스 멤버 (예시 편의상 전역)
+        static std::ofstream g_cost_log_file;
+        static bool g_is_cost_log_file_open = false;
+
+        if (!g_is_cost_log_file_open) {
+        g_cost_log_file.open("/tmp/svgd_cost_log.csv");
+        // 헤더
+        g_cost_log_file << "Iteration,SampleIdx,Cost\n";
+        g_is_cost_log_file_open = true;
+    }
+
+        // 1) 로그 파일 준비 (static 정적 변수 이용)
+        static std::ofstream g_best_particle_log;
+        static bool g_best_particle_log_opened = false;
+
+        if (!g_best_particle_log_opened) {
+            g_best_particle_log.open("/tmp/svgd_best_particle_log.csv");
+            // 헤더: Iteration, Row, Col, Value
+            g_best_particle_log << "Iteration,Row,Col,Value\n";
+            g_best_particle_log_opened = true;
+        }
+
+        static std::ofstream g_adaptive_cov_log;
+        static bool g_adaptive_cov_log_opened = false;
+        if (!g_adaptive_cov_log_opened) {
+            g_adaptive_cov_log.open("/tmp/svgd_adaptive_cov_log.csv");
+            // 헤더: Iteration, TimeStep, Dim, CovValue
+            g_adaptive_cov_log << "Iteration,TimeStep,Dim,CovValue\n";
+            g_adaptive_cov_log_opened = true;
+        }
+
+        // SVGD 루프에서 iteration을 세고 싶으면 static 카운터 사용
+        static int iter_count = 0;
+
+
+        // solve()가 여러 번 호출될 때, SVGD 루프(num_svgd_iteration_)을 돌며
+        // 그 총합을 세고 싶다면, static 변수 이용
+        static int iteration_count = 0; // SVGD 외부 루프 인덱스
+
         // Transport guide particles by SVGD
         std::vector<double> costs_history;
         std::vector<ControlSeq> control_seq_history;
@@ -92,6 +133,13 @@ namespace cpu {
             // guide_samples_ptr_->costs_ = costs;
             // const std::vector<double> cost_with_control_term = guide_samples_ptr_->get_costs_with_control_term(gaussian_fitting_lambda, 0,
             // prior_samples_ptr_->get_zero_control_seq());
+
+            // 로그에 기록
+            for (size_t s = 0; s < costs.size(); s++) {
+                g_cost_log_file << iteration_count << "," << s << "," << costs[s] << "\n";
+            }
+
+            iteration_count++;
 
             // history 업데이트 for adaptive covariance
             costs_history.insert(costs_history.end(), costs.begin(), costs.end());
@@ -145,6 +193,36 @@ namespace cpu {
             }
         }
 
+        // iteration_count를 solve()마다 증가시키려면 여기서++ 
+        iter_count++; 
+
+        for (size_t row = 0; row < (prediction_step_size_ - 1); row++) {
+            for (size_t col = 0; col < CONTROL_SPACE::dim; col++) {
+                double val = best_particle(row, col);
+                g_best_particle_log 
+                    << iter_count << ","
+                    << row << ","
+                    << col << ","
+                    << val 
+                    << "\n";
+            }
+        }
+
+        // (B) covs CSV 저장
+        // covs도 (prediction_step_size_-1)개의 행렬, each is CONTROL_SPACE::dim x CONTROL_SPACE::dim
+        // 만약 diagonal만 사용할 경우:
+        for (size_t t = 0; t < (prediction_step_size_ - 1); t++) {
+            for (size_t dim = 0; dim < CONTROL_SPACE::dim; dim++) {
+                double cov_val = covs[t](dim, dim); // diagonal
+                g_adaptive_cov_log 
+                    << iter_count << ","
+                    << t << "," 
+                    << dim << "," 
+                    << cov_val 
+                    << "\n";
+            }
+        }
+
         // random sampling from prior distribution
         prior_samples_ptr_->random_sampling(prev_control_seq_, covs);
 
@@ -176,6 +254,11 @@ namespace cpu {
         // update previous control sequence for next time step
         prev_control_seq_ = updated_control_seq;
 
+        // For Debug (2)
+        // {
+        //     guide_samples_ptr_->random_sampling(nominal_control_seq_, covs);
+        // }
+        
 
         return std::make_pair(updated_control_seq, collision_rate);
     }
@@ -252,9 +335,25 @@ namespace cpu {
         return sum_of_grads / (sum_of_costs + 1e-10);
     }
 
+
     ControlSeqBatch SVGuidedMPPI::approx_grad_posterior_batch(
         const PriorSamplesWithCosts& samples,
         const std::function<std::vector<double>(const PriorSamplesWithCosts&)>& calc_costs) const {
+
+        // 파일 전역 또는 클래스 멤버로 관리(여기선 간단히 전역 정적 변수처럼 처리 예시)
+        static std::ofstream g_gradient_log_file;
+        static bool g_is_gradient_log_file_open = false;
+
+        // 로그 파일이 아직 열려있지 않다면, 이 지점에서 엽니다. (한 번만)
+        if (!g_is_gradient_log_file_open) {
+            g_gradient_log_file.open("/tmp/svgd_gradient_log.csv"); 
+            // 헤더 작성 (iteration, sample_idx, row, col, value 등 필요시)
+            g_gradient_log_file << "Iteration,SampleIdx,Row,Col,GradValue\n";
+            g_is_gradient_log_file_open = true;
+        }
+
+        static int iteration_count = 0; // 함수 호출 횟수를 세어 Iteration 지표로 활용
+
         ControlSeqBatch grad_log_likelihoods = samples.get_zero_control_seq_batch();
         const ControlSeq mean = samples.get_mean();
         // #pragma omp parallel for num_threads(thread_num_)
@@ -263,10 +362,24 @@ namespace cpu {
                 mean, samples.noised_control_seq_samples_[i], samples.get_inv_cov_matrices(), calc_costs, grad_sampler_ptrs_.at(i).get());
 
             // 여기에서 grad_log_likelihood를 확인하기 위해 로그를 출력
-            ROS_INFO_STREAM("grad_log_likelihood sample " << i << ":\n" << grad_log_likelihood);
+            // ROS_INFO_STREAM("grad_log_likelihood sample " << i << ":\n" << grad_log_likelihood);
             grad_log_likelihoods[i] = grad_log_likelihood;
-        }
 
+        // == (A) 여기서 각 row, col에 대해 값을 로그로 저장 ==
+        for (size_t row = 0; row < grad_log_likelihood.rows(); row++) {
+            for (size_t col = 0; col < grad_log_likelihood.cols(); col++) {
+                double val = grad_log_likelihood(row, col);
+                g_gradient_log_file 
+                    << iteration_count << ","    // Iteration
+                    << i << ","          // SampleIdx (guide idx)
+                    << row << ","                // Row (time step)
+                    << col << ","                // Col (control dimension)
+                    << val                       // GradValue
+                    << "\n";
+            }
+        }
+        }
+        iteration_count++;
         return grad_log_likelihoods;
     }
 
